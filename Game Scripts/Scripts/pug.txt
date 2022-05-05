@@ -1,0 +1,215 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+
+public class pugControl : MonoBehaviour {
+
+    NavMeshAgent pugNav;
+    Animator p;
+
+    public float EnemyDistance = 9.0f;
+    public float hungerPerFrame = 5;
+    public float hungerPerSecond = 5;
+    public GameObject food;
+
+    float sightRange = 120;
+    // Use this for initialization
+    public CowControl cow;
+    CowControl[] cows;
+
+    public enum StateType { state_Search, state_Chase, state_Eat };
+    public StateType currState = StateType.state_Search;
+    // bool needWanderDestination = true;
+
+    public float HP = 100;
+
+    void Start () {
+
+        pugNav = GetComponent<NavMeshAgent>();
+        p = GetComponent<Animator>();
+        Move(new Vector3(0, 0, 0));
+        p.SetBool("isWalking", false);
+        InvokeRepeating("HungerRepeater", 5, 5);
+
+    }
+
+    bool needWanderDestination = true;
+
+    void Move(Vector3 target)
+    {
+        pugNav.SetDestination(target);
+    }
+    // Update is called once per frame
+    private void Update()
+    {
+        float distance = Vector3.Distance(transform.position, food.transform.position);
+
+        Debug.Log("Distance: " + distance);
+
+        //run away
+
+        if (distance < EnemyDistance)
+        {
+            Vector3 dirToPug = transform.position - food.transform.position;
+            Vector3 newpos = transform.position + dirToPug;
+            pugNav.SetDestination(newpos);
+        }
+
+        updateState(currState);
+        if (HP <= 0)
+        {
+            p.SetBool("Eat", false);
+            p.SetBool("isDeath", true);
+            p.SetBool("isWalking", false);
+
+        }
+        
+
+        if (HP <= 0)
+        {
+            HP = 0.0f;
+        }
+        else
+            if (HP >= 100)
+        {
+            HP = 100.0f;
+        }
+
+    }
+
+    void wandering()
+    {
+        //moving to random location
+        if (needWanderDestination == true)
+        {
+
+            pugNav.SetDestination(new Vector3(Random.Range(10, 1000), 0, Random.Range(10, 1000)));
+
+            needWanderDestination = false;
+        }
+
+        if (Vector3.Distance(this.transform.position, pugNav.destination) < 2)
+        {
+            needWanderDestination = true;
+        }
+        print(pugNav.destination);
+        p.SetBool("isWalking", true);
+
+
+
+        cows = FindObjectsOfType<CowControl>();
+        print("Amount of grass in scene" + cows.Length);
+
+
+    }
+
+    void updateState(StateType currentState)
+    {
+        switch(currentState)
+        {
+            case StateType.state_Search:
+                {
+                    wandering(); //moves the cow
+                    CheckFood();
+                    if (CheckFood())
+                    {
+                        //currentState = StateType.state_Eat;
+                        print("changingState");
+                        ChangeState(StateType.state_Eat);
+                    }
+                }
+                break;
+
+            case StateType.state_Eat:
+                {
+                    if (!cow)
+                    {
+                        ChangeState(StateType.state_Search);
+
+                    }
+                    Eat();
+                }
+                break;
+        }
+    }
+
+    bool CheckFood()
+    {
+        cows = FindObjectsOfType<CowControl>();
+        print("Amount of grass in scene" + cows.Length);
+        foreach (CowControl g in cows)
+        {
+            if (Vector3.Distance(g.gameObject.transform.position, transform.position) < sightRange)
+            {
+                cow = g;
+                return true;
+            }
+        }
+        return false;
+    }
+    private void ChangeState(StateType newState)
+    {
+        print("Changing  from " + currState + " to " + newState);
+        currState = newState;
+    }
+
+    public void Eat()
+    {
+        if (cow)
+        {
+            pugNav.SetDestination(cow.gameObject.transform.position);
+        }
+        if (cow)
+
+            if (Vector3.Distance(transform.position, cow.gameObject.transform.position) < 2)
+            {
+                cow.EatMe(50);
+            }
+    }
+
+    
+
+    void health()
+    {
+        if (currState != StateType.state_Eat)
+        {
+            HP = HP - hungerPerSecond;
+        }
+    }
+
+    public void isDeath()
+    {
+
+        p.SetBool("isDeath", true);
+        p.SetBool("isWalking", false);
+
+
+    }
+
+    void Hunger()
+    {
+        if (currState != StateType.state_Eat)
+            HP = HP - hungerPerFrame * Time.deltaTime;
+    }
+
+    void HungerRepeater()
+    {
+        if (currState != StateType.state_Eat && HP >= 0)
+            HP = HP - hungerPerSecond;
+    }
+    public bool DetectEnemy()
+    {
+
+        return false;
+    }
+
+    /* void wandering()
+ {
+     if (needWanderDestination == true)
+     {
+         pugNav.SetDestination(new Vector3(Random.Range(10, 1000), 0, Random.Range(10, 1000)));
+         needWanderDestination = false;
+     }
+     }*/
+}

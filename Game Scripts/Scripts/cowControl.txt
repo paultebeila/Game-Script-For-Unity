@@ -1,0 +1,174 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class CowControl : MonoBehaviour
+{
+	float Hope = 100;
+	public float hungerPerSecond =5;
+
+    public float EnemyDistance = 9.0f;
+    public GameObject pug;
+
+    float sightRange = 12;
+	public Grass foodTarget;
+	Grass[] grasses;
+   
+    private NavMeshAgent cowNav;
+    Animator a;
+    public enum StateType { state_SFF, state_Eat };
+    public StateType currentState = StateType.state_SFF;
+    // ste to new destination
+    
+
+    // Use this for initialization
+    void Start()
+    {
+        cowNav = GetComponent<NavMeshAgent>();
+        a = GetComponent<Animator>();
+        move(new Vector3(0, 0, 0));
+
+        a.SetBool("isWalking", false);
+
+
+    }
+
+    bool needWanderDestination = true;
+
+    void move(Vector3 target)
+    {
+         cowNav.SetDestination(target);
+
+    }
+    // Update is called once per frame
+   private void Update()
+    {
+        float distance = Vector3.Distance(transform.position, pug.transform.position);
+
+        Debug.Log("Distance: " + distance);
+
+        //run away
+
+        if (distance < EnemyDistance)
+        {
+            Vector3 dirToPug = transform.position - pug.transform.position;
+            Vector3 newpos = transform.position + dirToPug;
+            cowNav.SetDestination(newpos);
+        }
+
+        UpdateState(currentState);
+
+        if (grasses.Length == 0)
+        {
+            hunger();
+        }
+    
+    }
+    void Wandering()
+    {
+        //generating random loaction
+
+        if (needWanderDestination == true)
+        {
+            cowNav.SetDestination(new Vector3(Random.Range(10, 100), 0, Random.Range(10, 100)));
+            needWanderDestination = false;
+        }
+        //if distance between  our position and destination is smaller than some range
+        //set destination to true
+        if (Vector3.Distance(this.transform.position, cowNav.destination) < sightRange)
+        {
+            needWanderDestination = true;
+        }
+
+
+    }
+
+    void UpdateState(StateType currentState)
+    {
+        switch (currentState)
+        {
+            case StateType.state_SFF:
+                {
+                    Wandering(); //moves the cow
+                    CheckFood();
+                    if (CheckFood())
+                    {
+                        //currentState = StateType.state_Eat;
+                        print("changingState");
+                        ChangeState(StateType.state_Eat);
+                    }
+                }
+                break;
+
+            case StateType.state_Eat:
+                {
+                    if (!foodTarget)
+                    {
+                        ChangeState(StateType.state_SFF);
+
+                    }
+                    Eat();
+                }
+                break;
+        }
+    }
+
+    bool CheckFood()//checks nearby food,food found return true, else false
+    {
+		grasses = FindObjectsOfType<Grass>();
+        print("amount of grass in scene " + grasses.Length);
+        //test  to see if any of them are in range by looping through grasses array
+        //set one of them that are in range to be our target
+
+        foreach (Grass g in grasses)
+        {
+            if (Vector3.Distance(g.gameObject.transform.position, transform.position) < sightRange)
+            {
+                foodTarget = g;
+                return true;
+                //will still work without this
+            }
+        }
+        return false;
+
+    }
+
+    private void ChangeState(StateType newState)
+    {
+        print("Changing from " + currentState + " to " + newState);
+        currentState = newState;
+        //needWanderDestination = true;
+    }
+
+    public void Eat()
+    {
+        if (foodTarget)
+        {
+            cowNav.SetDestination(foodTarget.gameObject.transform.position);
+        }
+        if (foodTarget)
+
+            if (Vector3.Distance(transform.position, foodTarget.gameObject.transform.position) < 2)
+            {
+                foodTarget.EatMe(50);
+            }
+    }
+    public void EatMe(int biteSize)
+    {
+        Hope -= biteSize;
+        if (Hope <= 0)
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    void hunger()
+	{
+		if(currentState != StateType.state_Eat)
+		Hope = Hope - hungerPerSecond;
+
+
+	}
+
+
+}
